@@ -503,7 +503,8 @@ tr:hover td{background:var(--bg3);}
     <div class="card-hd"><div class="card-title">🏷 Rôles / Fonctions</div></div>
     <div class="cfg-list" id="roles-cfg-list"></div>
     <div class="cfg-add">
-      <input type="text" id="cfg-role-name" placeholder="ex: Opérateur">
+      <input type="text" id="cfg-role-name" placeholder="ex: Opérateur" style="flex:2">
+      <input type="text" id="cfg-role-abbrev" placeholder="Abrév. (ex: OPER)" style="flex:1;max-width:110px" maxlength="6">
       <input type="color" id="cfg-role-color" value="#00c9a7" style="width:40px;padding:2px;background:var(--bg0);border:1px solid var(--border2);border-radius:var(--r);height:34px;">
       <button class="btn btn-ghost btn-sm" onclick="addRole()">+ Ajouter</button>
     </div>
@@ -2193,7 +2194,36 @@ async function doExportExcel() {
 
 // ── HELPERS shared by combined builder ──
 function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
-  const nCols = allDays.length + 2;
+  // 3 cols per day: Rôle | DE | À  + 1 col Nom
+  const nCols = 1 + allDays.length * 3;
+
+  // Date range for title
+  const firstDay = allDays[0]?.date;
+  const lastDay  = allDays[allDays.length-1]?.date;
+  const fmtDate  = d => d ? `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}` : '';
+  const titleStr = ('Horaire de la semaine du ' + fmtDate(firstDay) + ' au ' + fmtDate(lastDay)).toUpperCase();
+
+  // Helper: get role abbreviation
+  function getRoleAbbrev(roleId) {
+    if (!roleId) return '';
+    const r = S.roles.find(x=>x.id===roleId);
+    if (!r) return '';
+    return r.abbrev || r.name.slice(0,5).toUpperCase();
+  }
+
+  // Helper: build 3 cells for one employee on one day
+  function dayCell(emp, day, shiftDef) {
+    const vacKey  = emp.id + '_' + day.date.toISOString().split('T')[0];
+    const vacCode = vacMap[vacKey];
+    if (vacCode && VAC_CODES.includes(vacCode)) {
+      return [vacCode, '', ''];
+    }
+    if (shiftDef && shiftDef.days.includes(day.dow)) {
+      const abbrev = getRoleAbbrev(emp.primaryRoleId);
+      return [abbrev, slotToTimeShort(shiftDef.startSlot), slotToTimeShort(shiftDef.endSlot)];
+    }
+    return ['', '', ''];
+  }
 
   // ALL shifts + no-shift group
   const shiftGroups = S.shifts.map(sh => ({
@@ -2201,12 +2231,19 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
   }));
   const noShiftEmps = S.employees.filter(e => !e.shiftId);
   if (noShiftEmps.length > 0)
-    shiftGroups.push({shift:{id:'__none__',name:'Sans quart assign\u00e9',color:'#888888',days:[],startSlot:0,endSlot:0}, emps:noShiftEmps});
+    shiftGroups.push({shift:{id:'__none__',name:'Sans quart assigné',color:'#888888',days:[],startSlot:0,endSlot:0}, emps:noShiftEmps});
 
-  // HEADER ROW
-  const header = ['Employ\u00e9', 'Fonctions', ...allDays.map(d=>d.label)];
-  const aoa = [header];
-  const rowMeta = ['header'];
+  // TITLE ROW
+  const titleRow = [titleStr, ...new Array(nCols-1).fill('')];
+  const aoa = [titleRow];
+  const rowMeta = [{type:'title'}];
+
+  // HEADER ROW: NOM | (Jour DE À) × days
+  const header = ['NOM'];
+  allDays.forEach(d => { header.push(d.label, 'DE', 'À'); });
+  aoa.push(header);
+  rowMeta.push({type:'header'});
+
 
   shiftGroups.forEach((g, gi) => {
     // Blank between quarts
@@ -2220,37 +2257,22 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
     // -- SHIFT TITLE --
     const sepRow = new Array(nCols).fill('');
     sepRow[0] = '\u25b6  ' + g.shift.name.toUpperCase() + '  \u25c0';
-    if (g.shift.startSlot !== undefined && g.shift.endSlot !== undefined && g.shift.startSlot !== g.shift.endSlot)
-      sepRow[1] = slotToTimeShort(g.shift.startSlot) + ' \u2013 ' + slotToTimeShort(g.shift.endSlot);
     aoa.push(sepRow); rowMeta.push({type:'shift', color:sc});
 
     // -- HORAIRE REGULIER --
     const secReg = new Array(nCols).fill('');
     secReg[0] = '\ud83d\udcc5 Horaire r\u00e9gulier';
-    aoa.push(secReg); rowMeta.push({type:'section', label:'regular', color:sc});
+    aoa.push(secReg); rowMeta.push({type:'section', label:'regular', color:sc, span:nCols});
 
     if (g.emps.length === 0) {
       const r = new Array(nCols).fill(''); r[0]='(aucun employ\u00e9 dans ce quart)';
       aoa.push(r); rowMeta.push({type:'empty'});
     } else {
       g.emps.forEach(emp => {
-        const shiftDef  = getShiftDef(emp.shiftId);
-        const roleNames = getEmpRoleIds(emp).map(getRoleName).join(', ') || '\u2014';
-        const row = [emp.name, roleNames];
-        allDays.forEach(day => {
-          const vacKey = emp.id + '_' + day.date.toISOString().split('T')[0];
-          const vacCode = vacMap[vacKey];
-          if (vacCode && VAC_CODES.includes(vacCode)) {
-            row.push(VAC_LABELS[vacCode] || vacCode);
-          } else if (shiftDef && shiftDef.days.includes(day.dow)) {
-            const primR = S.roles.find(r=>r.id===emp.primaryRoleId);
-            const timeStr = slotToTimeShort(shiftDef.startSlot)+'\u2013'+slotToTimeShort(shiftDef.endSlot);
-            row.push(primR ? timeStr+'\n('+primR.name+')' : timeStr);
-          } else {
-            row.push('\u2014');
-          }
-        });
-        aoa.push(row); rowMeta.push({type:'regular', color:sc, vacMap, empId:emp.id, allDays});
+        const shiftDef = getShiftDef(emp.shiftId);
+        const row = [emp.name];
+        allDays.forEach(day => row.push(...dayCell(emp, day, shiftDef)));
+        aoa.push(row); rowMeta.push({type:'regular', color:sc, emp, allDays, vacMap});
       });
     }
 
@@ -2283,17 +2305,17 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
       apprEmpIds.forEach(empId => {
         const emp     = S.employees.find(e=>e.id===empId);
         const eRows   = otApprRows.filter(r=>r.emp.id===empId);
-        const ar      = [...new Set(eRows.flatMap(r=>r.useRecs).filter(u=>u.roleId).map(u=>getRoleName(u.roleId)))];
-        const fonctions = ar.length ? ar.join(', ') : (getEmpRoleIds(emp).map(getRoleName).join(', ')||'\u2014');
-        const row = [emp.name, fonctions];
+        const row = [emp.name];
         allDays.forEach(day => {
           const dr = eRows.find(r=>r.day.wkey===day.wkey && r.day.dow===day.dow);
-          if (!dr) { row.push(''); return; }
-          if (dr.avail.absent) { row.push('ABSENT'); return; }
-          const ranges  = slotsToRanges([...dr.slots].sort((a,b)=>a-b));
-          const timeTxt = ranges.map(r=>slotToTimeShort(r[0])+'\u2013'+slotToTimeShort(r[1])).join(', ');
-          const rnames  = [...new Set(dr.useRecs.filter(u=>u.roleId).map(u=>getRoleName(u.roleId)))];
-          row.push(timeTxt + (rnames.length ? ' ['+rnames.join(', ')+']' : ''));
+          if (!dr) { row.push('','',''); return; }
+          if (dr.avail.absent) { row.push('ABS','',''); return; }
+          const useRoleId = dr.useRecs[0]?.roleId || emp.primaryRoleId || '';
+          const abbrev = useRoleId ? (S.roles.find(x=>x.id===useRoleId)?.abbrev || S.roles.find(x=>x.id===useRoleId)?.name.slice(0,5).toUpperCase() || '') : '';
+          const ranges = slotsToRanges([...dr.slots].sort((a,b)=>a-b));
+          const startT = ranges.length ? slotToTimeShort(ranges[0][0]) : '';
+          const endT   = ranges.length ? slotToTimeShort(ranges[ranges.length-1][1]) : '';
+          row.push(abbrev, startT, endT);
         });
         aoa.push(row); rowMeta.push({type:'ot-approved', color:sc});
       });
@@ -2339,9 +2361,9 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
       const roleStr = [regStr, otStr ? 'OT:\n'+otStr : ''].filter(Boolean).join('\n') || '—';
       return {roleStr, heuresMO: totalH, heuresDecoupe};
     });
-    const tot1 = ['Personnes par poste', '']; dayStats.forEach(d=>tot1.push(d.roleStr));
-    const tot2 = ['Heures de main-d’oeuvre', '']; dayStats.forEach(d=>tot2.push(d.heuresMO>0?d.heuresMO.toFixed(1)+'h':'—'));
-    const tot3 = ['Heures de découpe attendues', '']; dayStats.forEach(d=>tot3.push(d.heuresDecoupe>0?d.heuresDecoupe.toFixed(1)+'h':'—'));
+    const tot1 = ['Personnes par poste']; dayStats.forEach(d=>{tot1.push(d.roleStr,'','');});
+    const tot2 = ['Heures de main-d’oeuvre']; dayStats.forEach(d=>{tot2.push(d.heuresMO>0?d.heuresMO.toFixed(1)+'h':'—','','');});
+    const tot3 = ['Heures de découpe attendues']; dayStats.forEach(d=>{tot3.push(d.heuresDecoupe>0?d.heuresDecoupe.toFixed(1)+'h':'—','','');});
     aoa.push(tot1); rowMeta.push({type:'total', sub:'personnes', color:sc});
     aoa.push(tot2); rowMeta.push({type:'total', sub:'mo', color:sc});
     aoa.push(tot3); rowMeta.push({type:'total', sub:'decoupe', color:sc});
@@ -2373,16 +2395,17 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
       availEmpIds.forEach(empId => {
         const emp   = S.employees.find(e=>e.id===empId);
         const eRows = otAvailRows.filter(r=>r.emp.id===empId);
-        const fonctions = getEmpRoleIds(emp).map(getRoleName).join(', ')||'\u2014';
-        const row = [emp.name, fonctions];
+        const row = [emp.name];
         allDays.forEach(day => {
           const dr = eRows.find(r=>r.day.wkey===day.wkey&&r.day.dow===day.dow);
-          if (!dr) { row.push(''); return; }
-          if (dr.avail.absent) { row.push('ABSENT'); return; }
-          const ranges  = slotsToRanges([...dr.slots].sort((a,b)=>a-b));
-          const timeTxt = ranges.map(r=>slotToTimeShort(r[0])+'\u2013'+slotToTimeShort(r[1])).join(', ');
+          if (!dr) { row.push('','',''); return; }
+          if (dr.avail.absent) { row.push('ABS','',''); return; }
+          const abbrev = emp.primaryRoleId ? (S.roles.find(x=>x.id===emp.primaryRoleId)?.abbrev || S.roles.find(x=>x.id===emp.primaryRoleId)?.name.slice(0,5).toUpperCase() || '') : '';
+          const ranges = slotsToRanges([...dr.slots].sort((a,b)=>a-b));
+          const startT = ranges.length ? slotToTimeShort(ranges[0][0]) : '';
+          const endT   = ranges.length ? slotToTimeShort(ranges[ranges.length-1][1]) : '';
           const partial = (dr.avail.usedSlots||[]).some(s=>s>=shiftStart&&s<shiftEnd);
-          row.push(timeTxt+(partial?' (partiel)':''));
+          row.push(abbrev+(partial?' *':''), startT, endT);
         });
         aoa.push(row); rowMeta.push({type:'ot-available', color:sc});
       });
@@ -2391,9 +2414,17 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
 
   // ── Build worksheet ──
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{wch:28},{wch:22},...allDays.map(()=>({wch:20}))];
-  ws['!freeze'] = {xSplit:2, ySplit:1};
+  ws['!cols'] = [{wch:28},...allDays.flatMap(()=>[{wch:8},{wch:7},{wch:7}])];
+  ws['!freeze'] = {xSplit:1, ySplit:2};
   ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:aoa.length-1,c:nCols-1}});
+  // Merge title row across all columns
+  ws['!merges'] = ws['!merges'] || [];
+  ws['!merges'].push({s:{r:0,c:0}, e:{r:0,c:nCols-1}});
+  // Merge day label cells (col 1,4,7... span 3)
+  allDays.forEach((d,i) => {
+    const c = 1 + i*3;
+    ws['!merges'].push({s:{r:1,c}, e:{r:1,c:c+2}});
+  });
   ws['!rows'] = aoa.map((row, ri)=>{
     const m=rowMeta[ri]; const t=m?.type||m;
     if(t==='header'||t==='shift') return {hpt:22};
@@ -2432,9 +2463,12 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
       if(!ws[addr]) ws[addr]={v:'',t:'s'};
       const val=ws[addr].v??'';
 
-      if(mtype==='header'){
+      if(mtype==='title'){
+        ws[addr].s=cs(true,'1F2937','FFFFFF',false,13);
+        ws[addr].s.alignment={horizontal:'center',vertical:'center'};
+      } else if(mtype==='header'){
         ws[addr].s=cs(true,'1E3A5F','FFFFFF',false,11);
-        ws[addr].s.alignment.horizontal=ci<2?'left':'center';
+        ws[addr].s.alignment.horizontal=ci===0?'left':'center';
       } else if(mtype==='blank'){
         ws[addr].s=cs(false,'FFFFFF','FFFFFF');
       } else if(mtype==='shift'){
@@ -2877,9 +2911,13 @@ function renderCfgRoles() {
   const list = document.getElementById('roles-cfg-list');
   if (!list) return;
   list.innerHTML = S.roles.map(r=>`
-    <div class="cfg-item">
+    <div class="cfg-item" id="role-item-${r.id}">
       <div class="cfg-color-dot" style="background:${r.color}"></div>
-      <div class="cfg-item-name">${r.name}</div>
+      <div class="cfg-item-name" style="flex:1">${r.name}</div>
+      ${r.abbrev?`<span style="font-family:var(--mono);font-size:10px;font-weight:700;background:var(--bg4);padding:2px 6px;border-radius:4px;color:var(--text2)">${r.abbrev}</span>`:'<span style="font-size:10px;color:var(--text3)">—</span>'}
+      <input type="color" value="${r.color}" style="width:28px;height:24px;padding:1px;background:none;border:none;cursor:pointer"
+        onchange="updateRoleColor('${r.id}',this.value)">
+      <button class="btn btn-ghost btn-xs" onclick="startEditRole('${r.id}')">✏️</button>
       <button class="btn btn-ghost btn-xs" onclick="removeRole('${r.id}')">✕</button>
     </div>`).join('');
 }
@@ -3108,14 +3146,57 @@ async function addRole() {
   const name = document.getElementById('cfg-role-name').value.trim();
   const color = document.getElementById('cfg-role-color').value;
   if (!name) return toast('Entre un nom de rôle','err');
-  const role = {id:'r'+Date.now(), name, color};
+  const abbrev = (document.getElementById('cfg-role-abbrev')?.value||'').trim().toUpperCase();
+  const role = {id:'r'+Date.now(), name, abbrev, color};
   S.roles.push(role);
   lsSave();
   await fbSave('roles', role.id, role);
   document.getElementById('cfg-role-name').value='';
+  const abbrEl = document.getElementById('cfg-role-abbrev'); if(abbrEl) abbrEl.value='';
   renderCfgRoles();
   renderCfgEmployees(); // refresh matrix columns
   toast('Rôle ajouté','ok');
+}
+
+function startEditRole(id) {
+  const r = S.roles.find(x=>x.id===id);
+  if (!r) return;
+  const item = document.getElementById(`role-item-${id}`);
+  if (!item) return;
+  item.innerHTML = `
+    <div class="cfg-color-dot" style="background:${r.color}"></div>
+    <input type="text" value="${r.name}" id="edit-role-name-${id}" style="flex:2;font-size:12px;padding:4px 6px">
+    <input type="text" value="${r.abbrev||''}" id="edit-role-abbrev-${id}" placeholder="Abrév." style="flex:0 0 80px;font-size:12px;padding:4px 6px;font-family:var(--mono)" maxlength="6">
+    <input type="color" value="${r.color}" id="edit-role-color-${id}" style="width:28px;height:24px;padding:1px;background:none;border:none;cursor:pointer">
+    <button class="btn btn-ghost btn-xs" onclick="saveEditRole('${id}')">✓</button>
+    <button class="btn btn-ghost btn-xs" onclick="renderCfgRoles()">✕</button>
+  `;
+  document.getElementById(`edit-role-name-${id}`)?.focus();
+}
+
+async function saveEditRole(id) {
+  const r = S.roles.find(x=>x.id===id);
+  if (!r) return;
+  const name   = document.getElementById(`edit-role-name-${id}`)?.value.trim();
+  const abbrev = (document.getElementById(`edit-role-abbrev-${id}`)?.value||'').trim().toUpperCase();
+  const color  = document.getElementById(`edit-role-color-${id}`)?.value;
+  if (!name) return toast('Le nom ne peut pas être vide','err');
+  r.name   = name;
+  r.abbrev = abbrev;
+  r.color  = color;
+  lsSave();
+  await fbSave('roles', r.id, r);
+  renderCfgRoles();
+  renderCfgEmployees();
+  toast('Rôle mis à jour ✓','ok');
+}
+
+async function updateRoleColor(id, color) {
+  const r = S.roles.find(x=>x.id===id);
+  if (!r) return;
+  r.color = color;
+  lsSave();
+  await fbSave('roles', r.id, r);
 }
 
 async function removeRole(id) {
