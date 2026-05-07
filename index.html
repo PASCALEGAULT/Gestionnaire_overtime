@@ -2352,7 +2352,8 @@ function buildXLSheetCombined(wb, sheetName, allDays, vacMap={}) {
       const personnes = {};
       let otSlots = 0;
       S.uses.filter(u => u.weekKey===day.wkey && u.dayOfWeek===day.dow &&
-        u.slots.some(s=>s>=shiftStart&&s<shiftEnd)).forEach(u => {
+        u.slots.some(s=>s>=shiftStart&&s<shiftEnd) &&
+        S.employees.find(e=>e.id===u.empId)).forEach(u => {
         otSlots += u.slots.filter(s=>s>=shiftStart&&s<shiftEnd).length;
         const rid = u.roleId||'__none__';
         if (!personnes[rid]) personnes[rid] = new Set();
