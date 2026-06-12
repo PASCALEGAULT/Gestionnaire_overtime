@@ -759,6 +759,7 @@ const PAGES = [
   { id:'dashboard',  label:'📱 Tableau',    tab:'ntab-dashboard'  },
   { id:'historique', label:'📋 Historique', tab:'ntab-historique' },
   { id:'equipe',     label:'🧩 Matrice de compétences', tab:'ntab-equipe' },
+  { id:'config',     label:'⚙ Accès Config',  tab:null },
 ];
 
 // ─ Session ─
@@ -1001,25 +1002,35 @@ function doLogin() {
   const input = document.getElementById('login-input').value.trim();
   const errEl = document.getElementById('login-error');
 
-  if (input !== (S.masterCode || 'ADMIN0000')) {
+  let userName = null;
+
+  if (input === (S.masterCode || 'ADMIN0000')) {
+    userName = '🔑 Administrateur';
+  } else {
+    const emp = S.employees.find(e => (e.num||'') === input && !e.securityLock);
+    if (emp && emp.pageAccess && emp.pageAccess.config) {
+      userName = emp.name;
+    }
+  }
+
+  if (!userName) {
     loginFailCount++;
     if (loginFailCount >= 5) {
       errEl.textContent = 'Trop de tentatives.';
       document.getElementById('login-input').disabled = true;
       document.querySelector('#login-screen .btn').disabled = true;
     } else {
-      errEl.textContent = 'Code incorrect.';
+      errEl.textContent = 'Code incorrect ou accès non autorisé.';
     }
     errEl.style.display = 'block';
     document.getElementById('login-input').value = '';
     return;
   }
 
-  // ── Code maître → accès Config ──
   loginFailCount = 0;
-  currentUser = { emp: {name:'Administrateur', num:'—'}, pages:['config'], isAdmin: true };
+  currentUser = { emp: {name:userName, num:'—'}, pages:['config'], isAdmin: input === (S.masterCode || 'ADMIN0000') };
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('user-name-badge').textContent = '🔑 Administrateur';
+  document.getElementById('user-name-badge').textContent = userName;
   document.getElementById('view-config').classList.add('on');
   currentView = 'config';
   renderConfig();
@@ -2455,6 +2466,13 @@ function exportCSV() {
 // ═══════════════════════════════════════════════════════════
 //  ÉQUIPE VIEW
 // ═══════════════════════════════════════════════════════════
+function toggleEqRoleFilter(roleId) {
+  const sel = document.getElementById('eq-role-filter');
+  if (!sel) return;
+  sel.value = sel.value === roleId ? '' : roleId;
+  renderEquipe();
+}
+
 function renderEquipe() {
   const shiftSel = document.getElementById('eq-shift-filter');
   const roleSel  = document.getElementById('eq-role-filter');
@@ -2516,7 +2534,7 @@ function renderEquipe() {
     <th style="min-width:140px">Employé</th>
     <th style="min-width:120px">Quart</th>
     ${roles.map(r=>`
-      <th style="text-align:center;white-space:nowrap">
+      <th style="text-align:center;white-space:nowrap;cursor:pointer;${roleFilter===r.id?`background:${r.color}22`:''}" onclick="toggleEqRoleFilter('${r.id}')" title="Cliquer pour filtrer">
         <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px">
           <div style="width:8px;height:8px;border-radius:50%;background:${r.color}"></div>
           <span style="color:${r.color};font-size:10px">${r.name}</span>

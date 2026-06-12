@@ -468,175 +468,6 @@ tr:hover td{background:var(--bg3);}
 </div>
 
 <!-- ═══════════ VUE CONFIG ═══════════ -->
-<div id="view-config" class="view">
-
-  <div class="card" style="border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.04)">
-    <div class="card-hd">
-      <div><div class="card-title">🔑 Code maître</div><div class="card-sub">Accès secours à toutes les pages — ne pas partager</div></div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:flex-end;">
-      <div class="fg" style="flex:1;margin:0">
-        <label>Code maître actuel</label>
-        <input type="text" id="cfg-master-code"
-          style="font-family:var(--mono);font-size:16px;letter-spacing:.1em"
-          placeholder="ADMIN0000">
-      </div>
-      <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="saveMasterCode()">Enregistrer</button>
-    </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--text3);">
-      Ce code donne accès à <strong>toutes les pages</strong> quoi que ce soit. Code par défaut : <code style="font-family:var(--mono);background:var(--bg3);padding:1px 5px;border-radius:3px">ADMIN0000</code>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-hd"><div class="card-title">🔥 Connexion Firebase</div></div>
-    <div id="fb-status-badge" style="margin-bottom:10px;"></div>
-    <div class="fg"><label>API Key</label><input type="text" id="cfg-fb-apikey" placeholder="AIzaSy..."></div>
-    <div class="fg"><label>Auth Domain</label><input type="text" id="cfg-fb-authdomain" placeholder="projet.firebaseapp.com"></div>
-    <div class="fg"><label>Project ID</label><input type="text" id="cfg-fb-projectid" placeholder="mon-projet"></div>
-    <div class="fg"><label>App ID</label><input type="text" id="cfg-fb-appid" placeholder="1:123..."></div>
-    <button class="btn btn-primary" onclick="saveFirebase()">Connecter Firebase</button>
-    <button class="btn btn-ghost btn-sm" style="margin-left:8px;" onclick="testFirebase()">Tester</button>
-    <div style="margin-top:8px;font-size:11px;color:var(--text3);">Configure un projet Firebase gratuit sur console.firebase.google.com → Firestore Database → règles publiques pour démarrer.</div>
-  </div>
-
-  <div class="card">
-    <div class="card-hd">
-      <div class="card-title">👥 Employés &amp; Matrice de rôles</div>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3)">Trier par :</span>
-        <button class="btn btn-ghost btn-xs" onclick="setCfgEmpSort('num')" id="sort-btn-num">No.</button>
-        <button class="btn btn-ghost btn-xs" onclick="setCfgEmpSort('name')" id="sort-btn-name">Nom</button>
-        <button class="btn btn-ghost btn-xs" onclick="setCfgEmpSort('shift')" id="sort-btn-shift">Quart</button>
-      </div>
-    </div>
-    <div id="emp-cfg-list"></div>
-    <div style="margin-top:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:12px;">
-      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Nouvel employé</div>
-      <div class="fg2">
-        <div class="fg">
-          <label>No. employé</label>
-          <input type="text" id="cfg-emp-num" placeholder="ex: 1042" style="font-family:var(--mono)">
-        </div>
-        <div class="fg">
-          <label>Nom complet</label>
-          <input type="text" id="cfg-emp-name" placeholder="ex: Jean Tremblay">
-        </div>
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="addEmployee()" style="margin-top:4px;">+ Ajouter l'employé</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-hd"><div class="card-title">🏷 Rôles / Fonctions</div></div>
-    <div class="cfg-list" id="roles-cfg-list"></div>
-    <div class="cfg-add">
-      <input type="text" id="cfg-role-name" placeholder="ex: Opérateur" style="flex:2">
-      <input type="text" id="cfg-role-abbrev" placeholder="Abrév. (ex: OPER)" style="flex:1;max-width:110px" maxlength="6">
-      <input type="color" id="cfg-role-color" value="#00c9a7" style="width:40px;padding:2px;background:var(--bg0);border:1px solid var(--border2);border-radius:var(--r);height:34px;">
-      <button class="btn btn-ghost btn-sm" onclick="addRole()">+ Ajouter</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-hd">
-      <div><div class="card-title">⏰ Quarts de travail</div><div class="card-sub">Modifie les noms, horaires et jours de chaque quart</div></div>
-      <button class="btn btn-ghost btn-sm" onclick="addShift()">+ Ajouter quart</button>
-    </div>
-    <div id="shifts-cfg-list"></div>
-    <div style="margin-top:8px;font-size:11px;color:var(--text3);">Les heures sont en tranches de 30 min. Les horaires au-delà de 24h (ex: 3h00 du matin) s'affichent comme 27h00 → 03h00.</div>
-  </div>
-
-  <div class="card">
-    <div class="card-hd"><div class="card-title">📅 Calendriers de vacances</div></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
-      Colle l'<strong>ID Google Sheet</strong> (la partie entre <code style="font-family:var(--mono);background:var(--bg3);padding:1px 4px;border-radius:3px">/d/</code> et <code style="font-family:var(--mono);background:var(--bg3);padding:1px 4px;border-radius:3px">/edit</code> dans l'URL). Le fichier doit être partagé en lecture publique.
-    </div>
-    <div id="vac-years-list"></div>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">
-      <div class="fg" style="margin:0;flex:0 0 110px">
-        <label>Année (ex: 2026-2027)</label>
-        <input type="text" id="cfg-vac-year" placeholder="2026-2027" style="font-family:var(--mono)">
-      </div>
-      <div class="fg" style="margin:0;flex:1;min-width:200px">
-        <label>ID Google Sheet</label>
-        <input type="text" id="cfg-vac-id" placeholder="1_XSB9yCRqMmp-DFXUPD1JTS..." style="font-family:var(--mono);font-size:11px">
-      </div>
-      <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="addVacYear()">+ Ajouter</button>
-    </div>
-    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Onglets (départements)</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
-        Ajoute chaque onglet du Google Sheet avec son <strong>nom</strong> et son <strong>GID</strong> (visible dans l'URL quand tu cliques sur l'onglet : <code style="font-family:var(--mono);background:var(--bg3);padding:1px 4px;border-radius:3px">...edit?gid=XXXXXXX</code>).
-      </div>
-      <div id="vac-tabs-list"></div>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:flex-end;">
-        <div class="fg" style="margin:0;flex:1;min-width:140px">
-          <label>Nom de l'onglet</label>
-          <input type="text" id="cfg-vac-tab-name" placeholder="Laser jour">
-        </div>
-        <div class="fg" style="margin:0;flex:0 0 140px">
-          <label>GID</label>
-          <input type="text" id="cfg-vac-tab-gid" placeholder="1664140075" style="font-family:var(--mono)">
-        </div>
-        <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="addVacTab()">+ Ajouter</button>
-      </div>
-    </div>
-
-    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Table de correspondance des noms</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
-        Pour chaque employé, entre son nom <strong>exactement tel qu'il apparaît</strong> dans le Google Sheet (format : <code style="font-family:var(--mono);background:var(--bg3);padding:1px 4px;border-radius:3px">Nom, Prénom</code>).
-        L'app cherchera ce nom dans <strong>tous les onglets</strong> automatiquement.
-      </div>
-      <div id="vac-corr-list"></div>
-    </div>
-    <div style="margin-top:10px">
-      <button class="btn btn-ghost btn-sm" onclick="testVacFetch()">🔍 Tester la connexion</button>
-      <span id="vac-test-result" style="font-size:12px;margin-left:10px;color:var(--text3)"></span>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-hd"><div class="card-title">⚙️ Paramètres de production</div></div>
-    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-      <div class="fg" style="margin:0;flex:0 0 220px">
-        <label style="font-size:12px;font-weight:600">Ratio heures homme / heures laser</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Diviseur utilisé pour calculer les heures de découpe attendues dans le rapport Excel</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="number" id="cfg-ratio-hl" step="0.1" min="0.1" max="99"
-            value="3.5"
-            style="font-family:var(--mono);font-size:14px;padding:6px 10px;width:90px;text-align:center"
-            onblur="saveRatioHL(this.value)"
-            onkeydown="if(event.key==='Enter')this.blur()">
-          <span style="font-size:12px;color:var(--text3)">h·homme / h·laser</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-hd"><div class="card-title">🔄 Données locales</div></div>
-    <div style="background:var(--yellowbg);border:1px solid rgba(251,191,36,.25);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--yellow);line-height:1.6">
-      ⚠ <strong>Important :</strong> Les données sont sauvegardées dans le navigateur lié à l'emplacement du fichier.
-      Place le fichier <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px">overtime-jit.html</code> dans un dossier fixe sur ton ordinateur et ouvre <strong>toujours le même fichier</strong> — sinon les données ne suivent pas.
-    </div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="cfg-filepath">
-      📂 Chemin actuel : <span id="cfg-path-val" style="font-family:var(--mono);color:var(--text3)">—</span>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <button class="btn btn-ghost btn-sm" onclick="exportLocal()">⬇ Exporter JSON</button>
-      <label class="btn btn-primary btn-sm" style="cursor:pointer;margin:0">
-        ⬆ Importer JSON
-        <input type="file" accept=".json" style="display:none" onchange="importLocal(event)">
-      </label>
-      <button class="btn btn-danger btn-sm" onclick="clearLocal()">🗑 Effacer tout</button>
-    </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--text3);">
-      Si tes données ont disparu : exporte depuis l'ancien fichier → importe ici.
-    </div>
-  </div>
-</div>
 
 </div><!-- /body -->
 
@@ -763,6 +594,7 @@ const PAGES = [
   { id:'dashboard',  label:'📱 Tableau',    tab:'ntab-dashboard'  },
   { id:'historique', label:'📋 Historique', tab:'ntab-historique' },
   { id:'equipe',     label:'🧩 Matrice de compétences', tab:'ntab-equipe' },
+  { id:'config',     label:'⚙ Accès Config',  tab:null },
 ];
 
 // ─ Session ─
@@ -2490,6 +2322,13 @@ function exportCSV() {
 // ═══════════════════════════════════════════════════════════
 //  ÉQUIPE VIEW
 // ═══════════════════════════════════════════════════════════
+function toggleEqRoleFilter(roleId) {
+  const sel = document.getElementById('eq-role-filter');
+  if (!sel) return;
+  sel.value = sel.value === roleId ? '' : roleId;
+  renderEquipe();
+}
+
 function renderEquipe() {
   const shiftSel = document.getElementById('eq-shift-filter');
   const roleSel  = document.getElementById('eq-role-filter');
@@ -2551,7 +2390,7 @@ function renderEquipe() {
     <th style="min-width:140px">Employé</th>
     <th style="min-width:120px">Quart</th>
     ${roles.map(r=>`
-      <th style="text-align:center;white-space:nowrap">
+      <th style="text-align:center;white-space:nowrap;cursor:pointer;${roleFilter===r.id?`background:${r.color}22`:''}" onclick="toggleEqRoleFilter('${r.id}')" title="Cliquer pour filtrer">
         <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px">
           <div style="width:8px;height:8px;border-radius:50%;background:${r.color}"></div>
           <span style="color:${r.color};font-size:10px">${r.name}</span>
