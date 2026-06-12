@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Overtime Manager — JIT Laser</title>
+<title>Configuration — JIT Laser</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -271,37 +271,33 @@ tr:hover td{background:var(--bg3);}
 </head>
 <body>
 
-<!-- ═══════════ LOGIN SCREEN ═══════════ -->
+<!-- ═══════════ LOGIN SCREEN (CONFIG) ═══════════ -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">⚡</div>
-    <div class="login-title">Overtime Manager</div>
-    <div class="login-sub">JIT Laser — Entre ton numéro d'employé</div>
+    <div class="login-logo">⚙</div>
+    <div class="login-title">Configuration</div>
+    <div class="login-sub">JIT Laser — Code administrateur requis</div>
     <input class="login-input" type="text" id="login-input" inputmode="numeric"
       placeholder="••••" maxlength="10"
       onkeydown="if(event.key==='Enter')doLogin()">
     <div id="login-error" class="login-error"></div>
     <button class="btn btn-primary" style="width:100%;margin-top:16px;justify-content:center;font-size:15px" onclick="doLogin()">
-      Connexion →
+      Accéder →
     </button>
-    <div id="login-attempts" style="margin-top:12px;font-size:11px;color:var(--text3);display:none"></div>
+    <div style="margin-top:16px;text-align:center">
+      <a href="index.html" style="font-size:12px;color:var(--text3)">← Retour à l'application</a>
+    </div>
   </div>
 </div>
 
 <div id="header">
   <div class="logo">
-    <div class="logo-mark">⚡</div>
-    Overtime Manager
+    <div class="logo-mark">⚙</div>
+    Configuration
     <span class="logo-sub">JIT Laser</span>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
-    <div class="nav-tabs" id="nav-tabs">
-      <button class="nav-tab on" id="ntab-employe" onclick="nav('employe',this)">👤 Employé</button>
-      <button class="nav-tab" id="ntab-gestion" onclick="nav('gestion',this)">📊 Gestion</button>
-      <button class="nav-tab" id="ntab-dashboard" onclick="nav('dashboard',this)">📱 Tableau</button>
-      <button class="nav-tab" id="ntab-historique" onclick="nav('historique',this)">📋 Historique</button>
-      <button class="nav-tab" id="ntab-equipe" onclick="nav('equipe',this)">🧩 Matrice de compétences</button>
-    </div>
+    <a href="index.html" class="btn btn-ghost btn-sm">← Application</a>
     <div id="user-badge">
       <strong id="user-name-badge"></strong>
       <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
@@ -1004,60 +1000,29 @@ let currentView = 'employe';
 function doLogin() {
   const input = document.getElementById('login-input').value.trim();
   const errEl = document.getElementById('login-error');
-  const attEl = document.getElementById('login-attempts');
 
-  if (!input) { showLoginError('Entre ton numéro d\'employé.'); return; }
-
-  // ── Code maître → accès complet Config ──
-  if (input === (S.masterCode || 'ADMIN0000')) {
-    loginFailCount = 0;
-    currentUser = { emp: {name:'Administrateur', num:'—'}, pages: PAGES.map(p=>p.id), isAdmin: true };
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('user-name-badge').textContent = '🔑 Administrateur';
-    applyPageAccess(PAGES.map(p=>p.id));
-    return;
-  }
-
-  const emp = S.employees.find(e => (e.num||'') === input);
-
-  if (!emp) {
+  if (input !== (S.masterCode || 'ADMIN0000')) {
     loginFailCount++;
     if (loginFailCount >= 5) {
-      errEl.textContent = 'Trop de tentatives. Vois ton superviseur.';
-      errEl.style.display = 'block';
+      errEl.textContent = 'Trop de tentatives.';
       document.getElementById('login-input').disabled = true;
       document.querySelector('#login-screen .btn').disabled = true;
     } else {
-      const rem = 5 - loginFailCount;
-      errEl.textContent = `Numéro non reconnu. ${rem} tentative${rem>1?'s':''} restante${rem>1?'s':''}.`;
-      errEl.style.display = 'block';
-      attEl.style.display = 'block';
-      attEl.innerHTML = [1,2,3,4,5].map(i=>`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${i<=loginFailCount?'var(--red)':'var(--bg5)'};margin:0 2px"></span>`).join('');
+      errEl.textContent = 'Code incorrect.';
     }
+    errEl.style.display = 'block';
     document.getElementById('login-input').value = '';
     return;
   }
 
-  if (emp.securityLock) {
-    showLoginError('Ton accès est bloqué. Vois ton superviseur.');
-    document.getElementById('login-input').value = '';
-    return;
-  }
-
-  // Get allowed pages for this employee
-  const allowedPages = getEmpPages(emp);
-  if (allowedPages.length === 0) {
-    showLoginError('Aucun accès configuré. Vois ton superviseur.');
-    document.getElementById('login-input').value = '';
-    return;
-  }
-
-  // Login success
+  // ── Code maître → accès Config ──
   loginFailCount = 0;
-  currentUser = { emp, pages: allowedPages };
+  currentUser = { emp: {name:'Administrateur', num:'—'}, pages:['config'], isAdmin: true };
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('user-name-badge').textContent = emp.name;
-  applyPageAccess(allowedPages);
+  document.getElementById('user-name-badge').textContent = '🔑 Administrateur';
+  document.getElementById('view-config').classList.add('on');
+  currentView = 'config';
+  renderConfig();
 }
 
 function showLoginError(msg) {
